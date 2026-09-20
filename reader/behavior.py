@@ -1,7 +1,7 @@
 """Independent behavior predictors and leakage-safe targets for a text reader.
 
 Predictors receive only observations, visible history, legal masks, and text.
-Player logits and sampled actions are targets, never predictor inputs. All 81
+Player logits and sampled actions are targets, never predictor inputs. All
 equivalent pass actions are combined; move-conditioned metrics avoid a pass-only
 accuracy shortcut. The explanation reader itself receives only activations.
 """

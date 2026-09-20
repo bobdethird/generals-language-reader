@@ -156,6 +156,11 @@ adapters, player, reports, and one real held-out shard:
 The local command recomputes the original policy and intervention effects before
 asking the frozen language models to decode them. It preserves raw text, marks
 unsupported outputs unverified, and does not insert reference text as a repair.
+The image renderer adds a plain-English display layer: it shows the actual
+selected move and simplifies verified explanation claims. Concrete before/after
+troop counts replace logit-margin jargon. The unchanged reader outputs remain
+underneath, with errors flagged. This display wording is not new model output
+and does not change the reported reader accuracy.
 CPU inference was verified end to end; training and population accuracy were
 measured on B200. No training job needs to be restarted to use the interpreter.
 

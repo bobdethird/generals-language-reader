@@ -135,8 +135,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--initial-reader", type=Path, default=ROOT / "runs/reader-warmup/adapter.pt")
-    parser.add_argument("--device", choices=["cpu", "mps"], default="mps")
+    initialization = parser.add_mutually_exclusive_group()
+    initialization.add_argument("--initial-reader", type=Path, default=ROOT / "runs/reader-warmup/adapter.pt")
+    initialization.add_argument("--fresh-adapter", action="store_true",
+                                help="Initialize for this player's activation width instead of loading an older adapter")
+    parser.add_argument("--device", choices=["cpu", "mps", "cuda"], default="mps")
     parser.add_argument("--warmup-steps", type=int, default=200)
     parser.add_argument("--predictor-steps", type=int, default=400)
     parser.add_argument("--rl-steps", type=int, default=40)
@@ -148,11 +151,15 @@ def main():
     parser.add_argument("--max-tokens", type=int, default=80)
     parser.add_argument("--seed", type=int, default=144)
     args = parser.parse_args()
+    if args.fresh_adapter:
+        args.initial_reader = None
     if min(args.warmup_steps, args.predictor_steps, args.rl_steps, args.batch_size,
            args.groups, args.bootstrap_texts, args.eval_samples, args.max_tokens) <= 0 or args.candidates < 2:
         parser.error("Counts must be positive and at least two candidates are required")
     if args.device == "mps" and not torch.backends.mps.is_available():
         raise RuntimeError("Apple GPU unavailable here; run with device access or explicitly choose CPU")
+    if args.device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA GPU unavailable; no silent CPU fallback")
     args.output.mkdir(parents=True, exist_ok=False)
     torch.manual_seed(args.seed)
     torch.set_num_threads(6)
@@ -172,7 +179,7 @@ def main():
     model_lock = json.loads((ROOT / "reader-model.json").read_text())
     configuration = {**{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
                      "prompt": BEHAVIOR_PROMPT, "language_model": model_lock,
-                     "initial_reader_sha256": digest(args.initial_reader),
+                     "initial_reader_sha256": digest(args.initial_reader) if args.initial_reader else None,
                      "data_manifest": manifest, "torch_version": torch.__version__,
                      "code_sha256": {p: digest(ROOT / p) for p in
                          ["reader/behavior.py", "reader/language.py", "scripts/train_behavior_reader.py"]},
@@ -186,13 +193,18 @@ def main():
     val_idx = np.random.default_rng(405).permutation(len(val["rows"]))[:args.eval_samples]
     model_path = snapshot_download(model_lock["model"], revision=model_lock["revision"], local_files_only=True)
     reader = LanguageReader(model_path, train["activations"].shape[-1], args.device, BEHAVIOR_PROMPT)
-    checkpoint = torch.load(args.initial_reader, map_location="cpu", weights_only=True)
-    if checkpoint["model"] != model_lock:
-        raise ValueError("Initial adapter language model does not match")
-    reader.adapter.load_state_dict(checkpoint["adapter"])
+    if args.initial_reader:
+        checkpoint = torch.load(args.initial_reader, map_location="cpu", weights_only=True)
+        if checkpoint["model"] != model_lock:
+            raise ValueError("Initial adapter language model does not match")
+        if checkpoint.get("activation_dim", train["activations"].shape[-1]) != train["activations"].shape[-1]:
+            raise ValueError("Adapter activation width differs; use --fresh-adapter for a new player")
+        reader.adapter.load_state_dict(checkpoint["adapter"])
     wrapper = BehaviorReader(reader)
     log(stage="start", device=str(device), train_positions=len(train["rows"]),
-        player_frozen=True, language_backbone_frozen=True)
+        player_frozen=True, language_backbone_frozen=True,
+        activation_shape=list(train["activations"].shape[1:]),
+        adapter_parameters=sum(p.numel() for p in reader.adapter.parameters()))
 
     # Labels are generated solely from current visible observations.
     optimizer = torch.optim.AdamW(reader.adapter.parameters(), lr=5e-4)
@@ -382,7 +394,7 @@ def main():
               "scope": "Free-form text policy-gradient pilot, with automatic visible-fact grounding. "
                        "Immediate move probabilities only, not future rollouts or causal explanations. "
                        "Auditor has independent predictor weights but shares the frozen English encoder. "
-                       "Weak frozen player; a positive reward is not proof of English faithfulness."}
+                       "Frozen player; a positive reward is not proof of English faithfulness."}
     checkpoint_path = Path(manifest["checkpoint"])
     if digest(checkpoint_path) != manifest["checkpoint_sha256"]:
         raise AssertionError("Original player checkpoint changed")
