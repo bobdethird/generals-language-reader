@@ -1,8 +1,18 @@
 # Generals language reader
 
 An experiment with two parallel outputs from a game policy: the move, and a
-free-form text readout of its learned representations. Text is never an input
-to the player. The language reader consumes exported, detached activations.
+text readout of its learned representations. Text is never an input to the
+player. The move reader consumes detached activations and a copy of the frozen
+action head. A separate explanation reader also consumes measured changes in
+the player's preferences under controlled input probes.
+
+**Checkpoint 3,800 interpreter:** the completed B200 evaluation reports 100%
+exact move accuracy on 1,024 held-out positions and 96.1% agreement with the
+strongest measured influence on 4,096 held-out positions. Full move descriptions,
+including extra board context, were correct 91.1% of the time. Local inference
+checks every explanation and preserves errors as unverified text. These are
+tests of move reporting and local input sensitivity, not recovered strategic
+intent. See [the results, limitations, and runnable commands](INTERPRET_3800.md).
 
 This repository contains the source code, configurations, tests, and pinned
 dependency manifests. Generated runs, training data, model weights, downloaded
@@ -38,8 +48,10 @@ in this repository. Use the setup instructions to fetch the pinned dependencies.
   the desktop sandbox on this machine.
 
 **Not yet implemented:** text-to-activation reconstruction, future-trajectory
-rewards, a strong player, a replay UI, Stockfish support, or validated causal
-explanations. Warm-start captions describe facts, not the causes of an action.
+rewards, Stockfish support, or validated explanations of long-term strategy.
+The original warm-start captions describe facts. The checkpoint-3,800 reader
+adds controlled tests of local policy sensitivity; playing strength against
+skilled humans remains unestablished.
 
 ## First local results
 

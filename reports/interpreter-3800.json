@@ -1,0 +1,215 @@
+{
+  "player_sha256": "3ead46cee8d76e624179126bb7c3a8be54b00a24a75ae6f9e83b49e4978e3929",
+  "what": {
+    "positions": 1024,
+    "move_positions": 936,
+    "parse_rate": 1.0,
+    "exact_action_accuracy": 1.0,
+    "move_exact_accuracy": 1.0,
+    "fully_correct_description": 0.9111328125,
+    "move_field_accuracy": {
+      "source": 1.0,
+      "direction": 1.0,
+      "half": 1.0,
+      "destination": 0.9209401709401709,
+      "general_relation": 0.9764957264957265
+    }
+  },
+  "move_categories": {
+    "wait": {
+      "positions": 88,
+      "accuracy": 1.0
+    },
+    "full_moves": {
+      "positions": 907,
+      "accuracy": 1.0
+    },
+    "half_moves": {
+      "positions": 29,
+      "accuracy": 1.0
+    }
+  },
+  "why": {
+    "positions": 4096,
+    "parse_rate": 0.99658203125,
+    "exact_rationale_accuracy": 0.960693359375,
+    "nontrivial_positions": 3877,
+    "nontrivial_coverage": 0.946533203125,
+    "nontrivial_accuracy": 0.9584730461697188,
+    "probe_accuracy": 0.96002063451122,
+    "effect_sign_accuracy": 0.9739489295847304,
+    "switch_accuracy": 0.9834923910239877,
+    "by_probe": {
+      "inconclusive": {
+        "positions": 219,
+        "exact_accuracy": 1.0
+      },
+      "reducing source troops": {
+        "positions": 1003,
+        "exact_accuracy": 0.9700897308075773
+      },
+      "increasing source troops": {
+        "positions": 1316,
+        "exact_accuracy": 0.9688449848024316
+      },
+      "reducing destination troops": {
+        "positions": 168,
+        "exact_accuracy": 0.9583333333333334
+      },
+      "increasing destination troops": {
+        "positions": 279,
+        "exact_accuracy": 0.9283154121863799
+      },
+      "reducing the nearest visible enemy force": {
+        "positions": 20,
+        "exact_accuracy": 0.9
+      },
+      "increasing the nearest visible enemy force": {
+        "positions": 50,
+        "exact_accuracy": 0.88
+      },
+      "reducing troops on our general": {
+        "positions": 82,
+        "exact_accuracy": 0.926829268292683
+      },
+      "increasing troops on our general": {
+        "positions": 445,
+        "exact_accuracy": 0.9303370786516854
+      },
+      "removing recent friendly troop changes": {
+        "positions": 481,
+        "exact_accuracy": 0.9688149688149689
+      },
+      "removing recent enemy troop changes": {
+        "positions": 33,
+        "exact_accuracy": 0.9090909090909091
+      }
+    }
+  },
+  "independent_why_claim_audit": {
+    "claims_supported": {
+      "accuracy_gain": 0.992431640625,
+      "game_bootstrap_95_percent_interval": [
+        0.9897908335682087,
+        0.994912249937882
+      ],
+      "games": 373
+    },
+    "strongest_influence": {
+      "accuracy_gain": 0.966552734375,
+      "game_bootstrap_95_percent_interval": [
+        0.9611808847716719,
+        0.9720165126923063
+      ],
+      "games": 373
+    },
+    "canonical_match": {
+      "accuracy_gain": 0.960693359375,
+      "game_bootstrap_95_percent_interval": [
+        0.9549493300118578,
+        0.9667160642447885
+      ],
+      "games": 373
+    }
+  },
+  "independent_context_audit": {
+    "board_only": {
+      "positions": 1024,
+      "move_positions": 936,
+      "exact_accuracy": 0.552734375,
+      "move_exact_accuracy": 0.5138888888888888,
+      "cross_entropy": 1.6101983785629272
+    },
+    "readers": {
+      "iter3800-decision-readout-v1": {
+        "metrics": {
+          "generated_context": {
+            "positions": 1024,
+            "move_positions": 936,
+            "exact_accuracy": 0.6357421875,
+            "move_exact_accuracy": 0.6047008547008547,
+            "cross_entropy": 1.1771186590194702
+          },
+          "oracle_context": {
+            "positions": 1024,
+            "move_positions": 936,
+            "exact_accuracy": 0.6376953125,
+            "move_exact_accuracy": 0.6068376068376068,
+            "cross_entropy": 1.170621633529663
+          },
+          "no_context": {
+            "positions": 1024,
+            "move_positions": 936,
+            "exact_accuracy": 0.587890625,
+            "move_exact_accuracy": 0.5523504273504274,
+            "cross_entropy": 1.3804510831832886
+          },
+          "shuffled_context": {
+            "positions": 1024,
+            "move_positions": 936,
+            "exact_accuracy": 0.513671875,
+            "move_exact_accuracy": 0.4935897435897436,
+            "cross_entropy": 1.9496238231658936
+          }
+        },
+        "movement_accuracy_gain": {
+          "board_only": {
+            "accuracy_gain": 0.09081196581196581,
+            "game_bootstrap_95_percent_interval": [
+              0.06313307344340162,
+              0.11969881060080081
+            ],
+            "games": 352
+          },
+          "no_context": {
+            "accuracy_gain": 0.05235042735042735,
+            "game_bootstrap_95_percent_interval": [
+              0.031424362674362674,
+              0.07354820178455118
+            ],
+            "games": 352
+          },
+          "shuffled_context": {
+            "accuracy_gain": 0.1111111111111111,
+            "game_bootstrap_95_percent_interval": [
+              0.08574295482826821,
+              0.13713442182508384
+            ],
+            "games": 352
+          }
+        },
+        "context_recognition_rate": 0.9130859375
+      }
+    },
+    "positions": 1024,
+    "audit_device": "cuda",
+    "interpretation_scope": "Independent semantic-context usefulness. Explicit source/direction/split sentences are removed by construction. This is a behavioral association test, not proof of a strategic motive."
+  },
+  "checks": {
+    "move_accuracy_at_least_95_percent": true,
+    "complete_description_at_least_85_percent": true,
+    "rationale_accuracy_at_least_95_percent": true,
+    "nontrivial_rationale_at_least_95_percent": true,
+    "shuffled_evidence_gain_ci_positive": true,
+    "frozen_weights_verified": true,
+    "independent_context_gain_ci_positive": true
+  },
+  "passed": true,
+  "scope": "Local sensitivity to ten predefined input probes. This does not establish strategic intent or future benefit.",
+  "evaluation_note": "Population metrics use held-out maps on B200. Local examples are separate checks, not additional population estimates.",
+  "date": "2026-09-20",
+  "what_reader": "iter3800-decision-readout-v1",
+  "why_reader": "iter3800-why-reader-v4",
+  "what_adapter_sha256": "44a91ec163934740d16918fdd357feee1d62eecdefca0eac0f7a7a7e1e90ef2c",
+  "why_adapter_sha256": "f15c1dd4ad12fb4a6ec8e673cf5e18a7a69d1672096be7f9d675b9f17e88aec2",
+  "test_suite": {
+    "passed": 204,
+    "skipped": 8
+  },
+  "local_cpu_examples": [
+    0,
+    71,
+    192,
+    339
+  ]
+}
