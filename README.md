@@ -146,6 +146,23 @@ compressed `game.npz` trajectory, and `game.json` with checkpoint/config hashes,
 source pins, seed, outcome, and video details. Use `--render-only --output PATH`
 to re-encode a saved game without replaying or changing the match.
 
+For a different blue opponent, pass `--opponent PATH --opponent-label ITERATION`.
+Use `--simulate-only` to save the trajectory without rendering a standalone video.
+`scripts/render_checkpoint_grid.py` combines four trajectories in a synchronized
+2×2 video, with compact top-right overlays and no large headers or charts:
+
+```sh
+.venv/bin/python scripts/render_checkpoint_grid.py \
+  --games runs/spectator-grid-3000/vs-500 runs/spectator-grid-3000/vs-1500 \
+          runs/spectator-grid-3000/vs-2500 runs/spectator-3000/game-seed-3000 \
+  --output runs/spectator-grid-3000/video
+```
+
+Games must use the same starting map and red checkpoint; the renderer verifies
+both. Completed games hold their final board while the others finish. Checkpoint
+numbers label training iterations, not Elo ratings. The grid preserves normal
+fogged policy inputs and displays every tile to the spectator.
+
 ## Run a local experiment
 
 The wrapper selects the CPU explicitly, disables external experiment logging,

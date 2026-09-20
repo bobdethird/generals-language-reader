@@ -1,4 +1,4 @@
-"""Simulate one frozen-policy self-match, then render a full-map spectator MP4."""
+"""Simulate frozen-policy self-play or a checkpoint matchup and record a spectator MP4."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -45,8 +45,12 @@ def simulate(args):
         mountain_density_range=(cfg.mountain_density_min, cfg.mountain_density_max),
         truncation=cfg.truncation, perfect_info=False)
     model = eqx.tree_deserialise_leaves(args.checkpoint, build_network(cfg, jax.random.PRNGKey(0)))
-    if not all(np.isfinite(np.asarray(x)).all() for x in jax.tree.leaves(eqx.filter(model, eqx.is_array))):
-        raise ValueError("Nonfinite checkpoint")
+    opponent_path = getattr(args, "opponent", None) or args.checkpoint
+    opponent = model if opponent_path == args.checkpoint else eqx.tree_deserialise_leaves(opponent_path, model)
+    models = (model, opponent)
+    for network in models:
+        if not all(np.isfinite(np.asarray(x)).all() for x in jax.tree.leaves(eqx.filter(network, eqx.is_array))):
+            raise ValueError("Nonfinite checkpoint")
     bundle = get_network_bundle(cfg.network)
     histories = [bundle["init_obs_state"](cfg.pad_to, cfg.pad_to) for _ in range(2)]
     pool, state = env.reset(jax.random.PRNGKey(args.seed))
@@ -63,14 +67,14 @@ def simulate(args):
     frames = {field: [np.asarray(getattr(state, field)).copy()] for field in fields}
     actions_log = [np.array([[1, 0, 0, 0, 0]] * 2, dtype=np.int32)]
     hidden_counts = [0, 0]
-    print("Simulating checkpoint self-play with normal fog of war...", flush=True)
+    print("Simulating checkpoint matchup with normal fog of war...", flush=True)
     for tick in range(1, cfg.truncation + 1):
         actions = []
         for player in range(2):
             # Full state is used only for the recording; each policy sees its own fogged observation.
             observation = get_observation(state, player)
             hidden_counts[player] += int(np.count_nonzero(np.asarray(observation.fog_cells)))
-            action, histories[player] = choose(model, observation, histories[player])
+            action, histories[player] = choose(models[player], observation, histories[player])
             actions.append(action)
         actions = jnp.stack(actions)
         timestep, state = step_fn(state, actions, pool)
@@ -94,6 +98,9 @@ def simulate(args):
     np.savez_compressed(args.output / "game.npz", **arrays)
     record = {"created_at": datetime.now(timezone.utc).isoformat(),
               "checkpoint": str(args.checkpoint), "checkpoint_sha256": hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),
+              "opponent_checkpoint": str(opponent_path),
+              "opponent_sha256": hashlib.sha256(opponent_path.read_bytes()).hexdigest(),
+              "player_labels": [args.label, getattr(args, "opponent_label", None) or args.label],
               "config_sha256": hashlib.sha256(args.config.read_bytes()).hexdigest(),
               "upstream": json.loads((ROOT / "upstream-lock.json").read_text()),
               "checkpoint_label": args.label, "seed": args.seed, "grid_size": args.grid_size,
@@ -131,7 +138,9 @@ class SpectatorRenderer:
             d.text((x, y), str(value), font=self.fonts[size], fill=color or self.INK, **kwargs)
 
         text(46, 30, f"GENERALS  /  CHECKPOINT {self.record['checkpoint_label']}", 44)
-        text(47, 84, "SELF-PLAY  ·  FULL-MAP SPECTATOR VIEW", 19, self.MUTED)
+        same_weights = self.record.get("opponent_sha256", self.record["checkpoint_sha256"]) == self.record["checkpoint_sha256"]
+        mode = "SELF-PLAY" if same_weights else "CHECKPOINT MATCH"
+        text(47, 84, f"{mode}  ·  FULL-MAP SPECTATOR VIEW", 19, self.MUTED)
         tick = int(self.data["time"][index])
         text(1866, 42, f"Turn {tick / 2:g}  ·  2× playback", 26, anchor="ra")
         own = self.data["ownership"][index]
@@ -185,7 +194,8 @@ class SpectatorRenderer:
             top = 125 + player * 215
             d.rounded_rectangle((px,top,right,top+187), radius=20, fill="white")
             d.rounded_rectangle((px,top,px+8,top+187), radius=4, fill=colors[player])
-            text(px+28,top+18,f"{title}  ·  ITERATION {self.record['checkpoint_label']} EMA",26,colors[player])
+            label = self.record.get("player_labels", [self.record["checkpoint_label"]] * 2)[player]
+            text(px+28,top+18,f"{title}  ·  ITERATION {label} EMA",26,colors[player])
             cities = int((own[player] & castles).sum())
             for offset, label, value in ((28,"ARMY",self.army[index,player]),
                                         (325,"LAND",self.land[index,player]),(600,"CITIES",cities)):
@@ -268,15 +278,20 @@ def render(args, data, record):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint",type=Path,default=ROOT/"runs/spectator-3000/L_7d_gae90_ema_3000.eqx")
+    parser.add_argument("--opponent",type=Path,help="Optional different network-only EMA checkpoint for blue")
+    parser.add_argument("--opponent-label",help="Blue checkpoint iteration label")
     parser.add_argument("--config",type=Path,default=ROOT/"configs/averagejoe-published.yaml")
     parser.add_argument("--output",type=Path,default=ROOT/"runs/spectator-3000/game-seed-3000")
     parser.add_argument("--seed",type=int,default=3000)
     parser.add_argument("--grid-size",type=int,default=23)
     parser.add_argument("--label",default="3000")
     parser.add_argument("--render-only",action="store_true")
+    parser.add_argument("--simulate-only",action="store_true")
     args=parser.parse_args()
     args.output=args.output.resolve()
     args.checkpoint=args.checkpoint.resolve()
+    if args.opponent is not None:
+        args.opponent=args.opponent.resolve()
     args.config=args.config.resolve()
     if args.render_only:
         with np.load(args.output/"game.npz",allow_pickle=False) as archive:
@@ -285,7 +300,8 @@ def main():
     else:
         args.output.mkdir(parents=True,exist_ok=False)
         data,record=simulate(args)
-    render(args,data,record)
+    if not args.simulate_only:
+        render(args,data,record)
 
 
 if __name__=="__main__":
