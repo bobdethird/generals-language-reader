@@ -1,0 +1,10 @@
+# Linux/NVIDIA training environment; separate from the Mac requirements.lock.
+jax[cuda13]==0.11.2
+equinox==0.13.8
+optax==0.2.8
+jaxtyping==0.3.11
+ruamel.yaml==0.19.1
+wandb==0.30.0
+pygame==2.6.1
+matplotlib==3.11.2
+numpy==2.5.3

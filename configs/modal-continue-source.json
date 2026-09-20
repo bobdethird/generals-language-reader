@@ -1,0 +1,14 @@
+{
+  "source_run": "modal-h100-pilot-v1",
+  "source_iteration": 300,
+  "source_optimizer_updates": 19200,
+  "init_checkpoint": {
+    "path": "/runs/modal-h100-pilot-v1/checkpoints/modal_pilot/modal_pilot_final.eqx",
+    "sha256": "03aeb7b028ce105c902a40141f61c7f8cb4abe9be56553b48b4b126cb8765c1a"
+  },
+  "ema_checkpoint": {
+    "path": "/runs/modal-h100-pilot-v1/checkpoints/modal_pilot/modal_pilot_ema_300.eqx",
+    "sha256": "29c377bb4c5f03a4ecd07d314e30ac2411a53572cee94cf18826ad2385fa4e4c"
+  },
+  "restart_semantics": "Restores network, Adam optimizer and EMA; new environments and RNG stream. Checkpoint filenames and logs count continuation iterations from one."
+}

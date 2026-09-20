@@ -1,0 +1,68 @@
+{
+  "source_run": "modal-h100-continue-v1",
+  "source_iteration": 1500,
+  "source_optimizer_updates": 96000,
+  "init_checkpoint": {
+    "path": "/runs/modal-h100-continue-v1/checkpoints/modal_continue/modal_continue_final.eqx",
+    "sha256": "170da25463e6ae2e477484773652b3836e3106adf4acb6aedd8241f86467b0b9"
+  },
+  "ema_checkpoint": {
+    "path": "/runs/modal-h100-continue-v1/checkpoints/modal_continue/modal_continue_ema_1200.eqx",
+    "sha256": "f7b046038e592bf6181fb8c4d24ba86a454db46410eec6315827b6c2f29ee556"
+  },
+  "references": [
+    {
+      "name": "iter_0300",
+      "checkpoint": {
+        "path": "/runs/modal-h100-pilot-v1/checkpoints/modal_pilot/modal_pilot_ema_300.eqx",
+        "sha256": "29c377bb4c5f03a4ecd07d314e30ac2411a53572cee94cf18826ad2385fa4e4c"
+      },
+      "config": {
+        "path": "/runs/modal-h100-pilot-v1/requested-config.yaml",
+        "sha256": "11db77fe259f89baee414aeaca9c525a0905eb3e0fc877b9966f2a3d3e0d9a56"
+      }
+    },
+    {
+      "name": "iter_1500",
+      "checkpoint": {
+        "path": "/runs/modal-h100-continue-v1/checkpoints/modal_continue/modal_continue_ema_1200.eqx",
+        "sha256": "f7b046038e592bf6181fb8c4d24ba86a454db46410eec6315827b6c2f29ee556"
+      },
+      "config": {
+        "path": "/runs/modal-h100-continue-v1/requested-config.yaml",
+        "sha256": "72b833fe020d0f00822ec82421bd9aefd6a85e1d611aca7b08ef8e30dab0f96d"
+      }
+    }
+  ],
+  "restart_semantics": "Restores network, Adam optimizer and EMA. New RNG and environments; curriculum starts at stage 0 and promotes on evaluation. Local iteration numbers restart at one.",
+  "upstream_adaptations": [
+    "Existing 1.13M-parameter model and 11-12-cell maps retained.",
+    "Distance curriculum: 2-6, 4-8, 6-10, 8-12; promotion at 60% random-opponent wins.",
+    "Reference tests use both player positions on paired maps, 64 games per side; upstream only uses candidate as P0.",
+    "Reference match JIT executor reused; curriculum map/initial-state caches refreshed on transitions.",
+    "PPO, rewards, network, self-play and current optimizer settings unchanged.",
+    "Use the repository 100000-iteration total target and 500-iteration checkpoint cadence."
+  ],
+  "reference_environment": {
+    "grid_size": 12,
+    "generals_distance": [
+      4,
+      10
+    ],
+    "mountain_density": [
+      0.18,
+      0.26
+    ],
+    "num_cities": [
+      1,
+      3
+    ],
+    "castle_values": [
+      13,
+      18
+    ],
+    "truncation": 512
+  },
+  "target_cumulative_iteration": 100000,
+  "stop_condition": "Configured iteration target only; no application elapsed-time watchdog."
+}

@@ -1,0 +1,11 @@
+# Exact versions for the tested local environment are in requirements.lock.
+jax
+jaxlib
+equinox
+optax
+jaxtyping
+ruamel.yaml
+wandb
+pygame
+matplotlib
+pytest

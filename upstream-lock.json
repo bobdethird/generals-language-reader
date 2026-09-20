@@ -1,0 +1,10 @@
+{
+  "averagejoe": {
+    "url": "https://github.com/strakam/AverageJoe.git",
+    "commit": "25163875a3354a913fcee2139c1c4294e59335f7"
+  },
+  "generals-bots": {
+    "url": "https://github.com/strakam/generals-bots.git",
+    "commit": "e596ffe5cc7e065d3698b9b7d6475a1455d517d2"
+  }
+}

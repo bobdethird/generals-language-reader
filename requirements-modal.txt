@@ -1,0 +1,2 @@
+# Isolate the cloud client from local ML dependencies in .venv-modal.
+modal==1.5.5
