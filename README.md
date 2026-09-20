@@ -19,6 +19,8 @@ in this repository. Use the setup instructions to fetch the pinned dependencies.
   its final EMA checkpoint won 113 of 128 fresh-map games against random play.
 - The full 15,351,761-parameter published policy and distance curriculum through
   17–28, with a six-hour Modal campaign and measured multi-GPU scaling below.
+- A local human-versus-checkpoint game using the upstream GUI, with fog of war,
+  queued moves, half-army moves, and a paused start.
 - An activation exporter that verifies its readout against the original policy
   and value heads. Independent map-generation/reset seeds for train/validation;
   both players and all frames of each game stay in the same split.
@@ -84,6 +86,44 @@ verified and never silently reset.
 On this Mac, the working bootstrap Python and Git came from Codex's bundled
 runtime; the Apple command-line tools currently require Xcode license acceptance.
 No license acceptance or system configuration was performed by this project.
+
+## Play against iteration 2000
+
+`scripts/play_checkpoint.py` opens the upstream human-game window locally on
+CPU. It loads the frozen EMA model with the published architecture and uses the
+final curriculum's 17–28 general distance, 0.21 mountain density, and 23×23 map
+(padded to 24 for the network). Playing does not update the model or cloud run.
+
+The weights are stored in the private Modal Volume, not GitHub. After the local
+setup above and Modal authentication, download them once:
+
+```sh
+mkdir -p runs/play-2000
+.venv-modal/bin/python -m modal volume get generals-policy-checkpoints \
+  published-20260919-native4-dense100-eight-b200-8gpu-train/checkpoints/L_7d_gae90/L_7d_gae90_ema_2000.eqx \
+  runs/play-2000/L_7d_gae90_ema_2000.eqx
+.venv/bin/python scripts/play_checkpoint.py
+```
+
+The verified checkpoint SHA-256 is
+`37198a4851baf222942395870de9b3e7e6f2d46dc60829af137bfb867f780ad5`.
+The first game opens paused. You control red; press **P** to start or pause.
+Click a tile and use **W/A/S/D** to queue moves. **Shift + W/A/S/D** sends half
+the army. **E** undoes the last move, **Q** clears the queue, **Space** deselects,
+and **[ / ]** changes speed. **V** reveals the map as a debugging cheat.
+
+Use `--player 1` to play blue, `--seed` for a repeatable map sequence,
+`--grid-size` for a trained size from 17 to 23, or `--checkpoint` for another
+compatible network-only EMA file. Logs and the checkpoint hash are recorded
+under `runs/play-2000/`. The window scales to the desktop and can be resized.
+
+```sh
+.venv/bin/python scripts/play_checkpoint.py --smoke-test --seed 2092026
+```
+
+This check loads the actual weights and runs eight simulator turns without a
+window. It passed locally with finite weights and about 9 ms per warmed-up
+decision; interactive human play was also confirmed.
 
 ## Run a local experiment
 
