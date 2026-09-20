@@ -455,10 +455,15 @@ are disabled. Only selected scalar logs and training configuration are uploaded.
 ### Wins against older checkpoints
 
 `modal_checkpoint_eval.py` watches the active run's numbered EMA checkpoints.
-It retains iteration 500 as a fixed reference, then adds 1000, 1500, and each
-subsequent 500-step checkpoint. **Candidates are evaluated every 100 iterations**
-against all earlier references: 600, 700, 800, 900 and 1000 versus 500; 1100 versus
-500 and 1000; 1600 versus 500, 1000 and 1500; and so on. The initial 500-versus-500
+Reference checkpoints occur every 500 iterations. **Candidates are evaluated
+every 100 iterations against at most the three most recent earlier references**:
+1600 versus 500, 1000 and 1500; 2600 versus 1500, 2000 and 2500; 3100 versus
+2000, 2500 and 3000. The reference window is selected before skipping completed
+matches, so completed comparisons never cause older opponents to be added back.
+This rolling limit replaces the original all-earlier-reference schedule.
+Existing results and all saved checkpoints remain intact; older W&B series stop
+receiving points once their reference leaves the window. Match settings and
+dashboard identity remain unchanged. The initial 500-versus-500
 control checks paired-game accounting and is displayed separately from progress.
 The first campaign saved only iteration 500 before the change, so 600–900 cannot
 be reconstructed. Dense saving begins after the safe handoff at iteration 946.

@@ -21,13 +21,30 @@ def test_discovery_uses_confirmed_numbered_ema_files(tmp_path):
         checkpoints(tmp_path, "../training")
 
 
-def test_future_checkpoints_keep_old_anchors_and_do_not_repeat_completed_pairs():
+def test_candidates_use_500_step_anchors_and_do_not_repeat_completed_pairs():
     done = {(500, 500), (1000, 500)}
     assert pending_pairs([2000, 500, 1500, 1000], done) == [
         (1500, 500), (1500, 1000), (2000, 500), (2000, 1000), (2000, 1500)]
     assert pending_pairs([500], done) == []
     assert pending_pairs([500, 600, 700, 1000, 1100], set()) == [
         (600, 500), (700, 500), (1000, 500), (1100, 500), (1100, 1000)]
+
+
+def test_reference_window_rolls_forward_and_excludes_self():
+    values = [3100, 3000, 2500, 2600, 2000, 2100, 1500, 1000, 500, 2500]
+    pairs = pending_pairs(values, set())
+    assert [ref for candidate, ref in pairs if candidate == 2600] == [1500, 2000, 2500]
+    assert [ref for candidate, ref in pairs if candidate == 3000] == [1500, 2000, 2500]
+    assert [ref for candidate, ref in pairs if candidate == 3100] == [2000, 2500, 3000]
+    assert all(sum(c == step for c, _ in pairs) <= 3 for step in values)
+
+
+def test_completed_recent_matches_do_not_backfill_older_opponents():
+    values = [500, 1000, 1500, 2000, 2500, 2600]
+    done = {(2600, 1500), (2600, 2000)}
+    assert [pair for pair in pending_pairs(values, done) if pair[0] == 2600] == [(2600, 2500)]
+    done.add((2600, 2500))
+    assert [pair for pair in pending_pairs(values, done) if pair[0] == 2600] == []
 
 
 def test_resumed_run_inherits_anchors_but_clips_unselected_parent_history(tmp_path):

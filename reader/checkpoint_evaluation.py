@@ -14,6 +14,8 @@ PROTOCOL = {
     "action_selection": "greedy", "paired_starting_positions": True,
 }
 PROTOCOL_ID = hashlib.sha256(json.dumps(PROTOCOL, sort_keys=True).encode()).hexdigest()[:12]
+# Scheduling is independent of the match protocol, so historical results remain valid.
+MAX_REFERENCES = 3
 
 
 def validate_source(source):
@@ -49,10 +51,16 @@ def checkpoints(root, source):
 
 
 def pending_pairs(iterations, completed):
-    """Evaluate every 100 steps; retain references only at 500-step intervals."""
+    """Evaluate candidates against their three most recent earlier 500-step anchors."""
     values = sorted(set(iterations))
-    return [(candidate, reference) for candidate in values for reference in values
-            if reference % 500 == 0 and reference < candidate and (candidate, reference) not in completed]
+    anchors = [step for step in values if step % 500 == 0]
+    result = []
+    for candidate in values:
+        references = [step for step in anchors if step < candidate][-MAX_REFERENCES:]
+        # Select the window BEFORE skipping completed pairs; never backfill older opponents.
+        result.extend((candidate, reference) for reference in references
+                      if (candidate, reference) not in completed)
+    return result
 
 
 def result_path(root, candidate, reference):

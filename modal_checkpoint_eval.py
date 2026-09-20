@@ -8,7 +8,7 @@ import time
 
 import modal
 from modal_policy import image as base_image, volume as training_volume, ROOT
-from reader.checkpoint_evaluation import (PROTOCOL, PROTOCOL_ID, checkpoints,
+from reader.checkpoint_evaluation import (PROTOCOL, PROTOCOL_ID, MAX_REFERENCES, checkpoints,
                                           pending_pairs, read_results, validate_source,
                                           wandb_metrics)
 
@@ -82,7 +82,7 @@ def private_project(api, entity):
 @app.function(cpu=0.25, memory=1024,
               secrets=[modal.Secret.from_name("wandb-secret", required_keys=["WANDB_API_KEY"])], **COMMON)
 def watch(source=DEFAULT_SOURCE, entity="bobdethird", tracking_source=""):
-    """Evaluate 100-step snapshots against 500-step anchors across training resumes."""
+    """Evaluate 100-step snapshots against the three most recent earlier 500-step anchors."""
     import wandb
     os.environ["WANDB_MODE"] = "online"
     validate_source(source)
@@ -108,16 +108,19 @@ def watch(source=DEFAULT_SOURCE, entity="bobdethird", tracking_source=""):
             x_disable_machine_info=True, x_save_requirements=False,
             x_file_stream_transmit_interval=5, quiet=True, finish_timeout=60))
     run.config.update({"active_source_run": source, "deadline_unix": deadline,
-                       "schedule": "Every 100 iterations against all earlier 500-step EMA checkpoints"},
+                       "max_references_per_candidate": MAX_REFERENCES,
+                       "schedule": "Every 100 iterations against the three most recent earlier 500-step EMA checkpoints"},
                       allow_val_change=True)
     run.define_metric("iteration")
     run.define_metric("checkpoint/*", step_metric="iteration", step_sync=False)
     run.define_metric("control/*", step_metric="iteration", step_sync=False)
     print(json.dumps({"wandb_url": run.url, "deadline_unix": deadline,
-                      "reference_schedule": "500, 1000, 1500, ...", "gpu": "H100 on demand"}), flush=True)
+                      "reference_schedule": "Most recent three earlier checkpoints at 500-step intervals",
+                      "max_references_per_candidate": MAX_REFERENCES, "gpu": "H100 on demand"}), flush=True)
     retries = {}
     state = {"source": source, "tracking_source": tracking_source,
-             "protocol_id": PROTOCOL_ID, "wandb_url": run.url}
+             "protocol_id": PROTOCOL_ID, "wandb_url": run.url,
+             "max_references_per_candidate": MAX_REFERENCES}
 
     def save_state(**updates):
         state.update(updates, updated_unix=time.time())
