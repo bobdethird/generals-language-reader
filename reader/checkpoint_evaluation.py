@@ -23,27 +23,36 @@ def validate_source(source):
 
 
 def checkpoints(root, source):
-    """Only numbered EMA files confirmed by the trainer's later progress marker.
+    """Confirmed numbered EMA files across the selected checkpoint lineage.
 
     The mutable 'latest' checkpoint is never an evaluation reference.
     """
-    run = Path(root) / validate_source(source)
-    progress = json.loads((run / "progress.json").read_text())
-    result = {}
-    for path in (run / "checkpoints/L_7d_gae90").glob("L_7d_gae90_ema_*.eqx"):
-        match = re.fullmatch(r"L_7d_gae90_ema_(\d+)\.eqx", path.name)
-        if match:
-            iteration = int(match[1])
-            if iteration >= 500 and iteration % 500 == 0 and iteration <= progress["iteration"]:
-                result[iteration] = path
+    result, seen, ceiling = {}, set(), float("inf")
+    while source:
+        run = Path(root) / validate_source(source)
+        if source in seen:
+            raise ValueError("Checkpoint ancestry contains a cycle")
+        seen.add(source)
+        record = json.loads((run / "run.json").read_text())
+        progress_path = run / "progress.json"
+        progress = json.loads(progress_path.read_text()) if progress_path.exists() else {"iteration": 0}
+        for path in (run / "checkpoints/L_7d_gae90").glob("L_7d_gae90_ema_*.eqx"):
+            match = re.fullmatch(r"L_7d_gae90_ema_(\d+)\.eqx", path.name)
+            if match:
+                iteration = int(match[1])
+                if iteration >= 500 and iteration % 100 == 0 and iteration <= min(ceiling, progress["iteration"]):
+                    result.setdefault(iteration, path)
+        resume = record.get("resume", {})
+        source = resume.get("source")
+        ceiling = min(ceiling, resume.get("iteration", ceiling))
     return dict(sorted(result.items()))
 
 
 def pending_pairs(iterations, completed):
-    """Retain every previous anchor: 1000→500; 1500→500,1000; etc."""
+    """Evaluate every 100 steps; retain references only at 500-step intervals."""
     values = sorted(set(iterations))
     return [(candidate, reference) for candidate in values for reference in values
-            if reference < candidate and (candidate, reference) not in completed]
+            if reference % 500 == 0 and reference < candidate and (candidate, reference) not in completed]
 
 
 def result_path(root, candidate, reference):

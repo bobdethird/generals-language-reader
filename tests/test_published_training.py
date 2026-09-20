@@ -148,7 +148,7 @@ def test_eight_gpu_selection_preserves_four_upstream_top_k_sets(local_samples):
     assert indices.shape == (8, local_samples//4)
 
 
-@pytest.mark.parametrize('reason', ['deadline', 'configured_iterations'])
+@pytest.mark.parametrize('reason', ['deadline', 'configured_iterations', 'handoff'])
 def test_stop_saves_weights_optimizer_and_ema_before_exit(tmp_path, monkeypatch, reason):
     import equinox as eqx
     import json
@@ -159,7 +159,9 @@ def test_stop_saves_weights_optimizer_and_ema_before_exit(tmp_path, monkeypatch,
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv('AVERAGEJOE_DEADLINE', str(time.time() + (60 if reason == 'deadline' else 3600)))
     offset = 264
-    local_iteration = 7 if reason == 'deadline' else 30000-offset
+    local_iteration = 30000-offset if reason == 'configured_iterations' else 7
+    if reason == 'handoff':
+        (tmp_path/'checkpoint-and-stop').touch()
     network = {'weights': jnp.array([1., 2.])}
     optimizer = optax.adam(.001).init(network)
     ema = {'weights': jnp.array([.8, 1.9])}

@@ -129,6 +129,9 @@ def run_published(gpu, count, name, iterations, deadline, cache_from="", resume_
         command = [sys.executable, "-u", "/project/scripts/policy_entry.py", "--config", str(effective_config)]
         overrides = {}
         if is_training:
+            # User-requested dense checkpoint comparisons run on a separate GPU.
+            # Only serialization cadence changes; the learner recipe is unchanged.
+            overrides.update(ckpt_every=100, save_every=100)
             # No author reference weights were published. An empty bank already
             # skips every reference match, but upstream still builds an unused
             # pool. Avoid that setup on production resumes; preserve the already

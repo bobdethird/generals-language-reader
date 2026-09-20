@@ -10,6 +10,7 @@ def test_discovery_uses_confirmed_numbered_ema_files(tmp_path):
     root = tmp_path / "training"
     folder = root / "checkpoints/L_7d_gae90"
     folder.mkdir(parents=True)
+    (root / "run.json").write_text('{}')
     (root / "progress.json").write_text('{"iteration": 1000}')
     for name in ("L_7d_gae90_ema_500.eqx", "L_7d_gae90_ema_1000.eqx",
                  "L_7d_gae90_ema_1500.eqx", "L_7d_gae90_1000.eqx",
@@ -25,6 +26,30 @@ def test_future_checkpoints_keep_old_anchors_and_do_not_repeat_completed_pairs()
     assert pending_pairs([2000, 500, 1500, 1000], done) == [
         (1500, 500), (1500, 1000), (2000, 500), (2000, 1000), (2000, 1500)]
     assert pending_pairs([500], done) == []
+    assert pending_pairs([500, 600, 700, 1000, 1100], set()) == [
+        (600, 500), (700, 500), (1000, 500), (1100, 500), (1100, 1000)]
+
+
+def test_resumed_run_inherits_anchors_but_clips_unselected_parent_history(tmp_path):
+    old = tmp_path / "old"
+    folder = old / "checkpoints/L_7d_gae90"
+    folder.mkdir(parents=True)
+    (old / "run.json").write_text('{}')
+    (old / "progress.json").write_text('{"iteration": 1000}')
+    for step in (500, 600, 1000):
+        (folder / f"L_7d_gae90_ema_{step}.eqx").write_bytes(b"test")
+    new = tmp_path / "new"
+    folder = new / "checkpoints/L_7d_gae90"
+    folder.mkdir(parents=True)
+    (new / "run.json").write_text('{"resume":{"source":"old","iteration":950}}')
+    # Before the first new checkpoint, the old references are still available.
+    assert list(checkpoints(tmp_path, "new")) == [500, 600]
+    (new / "progress.json").write_text('{"iteration":1100}')
+    for step in (1000, 1100):
+        (folder / f"L_7d_gae90_ema_{step}.eqx").write_bytes(b"new")
+    saved = checkpoints(tmp_path, "new")
+    assert list(saved) == [500, 600, 1000, 1100]
+    assert saved[1000].is_relative_to(new)
 
 
 def test_draws_remain_in_win_rate_denominator_and_half_in_score():

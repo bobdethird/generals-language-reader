@@ -81,7 +81,7 @@ def inspect_run(source=DEFAULT_SOURCE, entity="", project=PROJECT):
 
 
 @app.function(**OPTIONS)
-def sync(source=DEFAULT_SOURCE, entity="", project=PROJECT, poll_seconds=30):
+def sync(source=DEFAULT_SOURCE, entity="", project=PROJECT, poll_seconds=30, tracking_source=""):
     import wandb
     from reader.wandb_sync import lineage, events, public_config, valid_name
     valid_name(source)
@@ -95,7 +95,7 @@ def sync(source=DEFAULT_SOURCE, entity="", project=PROJECT, poll_seconds=30):
     volume.reload()
     segments = lineage("/runs", source)
     deadline = float(segments[-1]["record"]["deadline_unix"])
-    run_id = run_id_for(source)
+    run_id = run_id_for(valid_name(tracking_source or source))
     seen = set()
     matches = list(api.runs(f"{entity}/{project}", filters={"name": run_id}))
     if matches:
@@ -108,9 +108,11 @@ def sync(source=DEFAULT_SOURCE, entity="", project=PROJECT, poll_seconds=30):
     )
     run = wandb.init(entity=entity, project=project, id=run_id, resume="allow",
                      name="Published policy · live 8×B200", job_type="metrics-mirror",
-                     config=public_config(segments), settings=settings, dir="/tmp",
+                     config=None if matches else public_config(segments), settings=settings, dir="/tmp",
                      notes="Scalar mirror of the selected checkpoint lineage. Global batch grows at iteration 241. "
                            "Evaluation is against random play on a changing curriculum, not an Elo rating.")
+    if matches:
+        run.config.update(public_config(segments), allow_val_change=True)
     run.define_metric("iteration")
     for prefix in ("train", "eval", "performance", "curriculum", "timing", "sync"):
         run.define_metric(prefix + "/*", step_metric="iteration", step_sync=False)
@@ -155,14 +157,16 @@ def sync(source=DEFAULT_SOURCE, entity="", project=PROJECT, poll_seconds=30):
 
 @app.local_entrypoint()
 def main(check_only: bool = False, inspect_only: bool = False,
-         source: str = DEFAULT_SOURCE, entity: str = "", project: str = PROJECT):
+         source: str = DEFAULT_SOURCE, entity: str = "", project: str = PROJECT,
+         tracking_source: str = ""):
     if check_only:
         print(json.dumps(check.remote()))
     elif inspect_only:
-        print(json.dumps(inspect_run.remote(source, entity, project)))
+        print(json.dumps(inspect_run.remote(tracking_source or source, entity, project)))
     else:
-        call = sync.spawn(source, entity, project)
-        report = {"call_id": call.object_id, "source": source, "project": project}
+        call = sync.spawn(source, entity, project, tracking_source=tracking_source)
+        report = {"call_id": call.object_id, "source": source, "tracking_source": tracking_source or source,
+                  "project": project}
         output = ROOT / "runs/wandb-sync"
         output.mkdir(parents=True, exist_ok=True)
         (output / "launch.json").write_text(json.dumps(report, indent=2) + "\n")

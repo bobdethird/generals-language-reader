@@ -197,6 +197,13 @@ or the existing **2026-09-20 04:19:03 UTC** save-and-stop deadline, whichever co
 first. The unchanged upstream YAML is retained for provenance; the runtime target
 is 30,000 and resuming subtracts the checkpoint's completed iterations.
 
+At iteration 946 the learner was checkpointed and resumed on the same eight-B200
+configuration with **100-iteration checkpoint saves**, as requested for denser
+evaluation. Production overrides `ckpt_every` and `save_every` to 100; the
+published YAML remains unchanged. Weights, optimizer, EMA and curriculum resume
+from that checkpoint; game environments start fresh. The target and original
+deadline remain unchanged.
+
 **Earlier-run caveat identified September 19:** through iteration 240 the multi-GPU runner
 preserved the *one-GPU* global batch, not the repository's native four-GPU batch.
 Upstream `train/ppo.py` allocates `cfg.num_envs` on every device and uses
@@ -348,7 +355,8 @@ Do not put the key in source code or Git.
 ```sh
 .venv-modal/bin/python -m modal run modal_wandb.py --check-only
 .venv-modal/bin/python -m modal run --detach modal_wandb.py \
-  --source published-20260919-native4-production-eight-b200-8gpu-train
+  --source published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --tracking-source published-20260919-native4-production-eight-b200-8gpu-train
 ```
 
 The uploader uses the key's default W&B entity, or `--entity YOUR_TEAM`, and
@@ -361,6 +369,9 @@ at the resumed iteration; sibling benchmarks and earlier small models are
 excluded. Charts use the original **iteration** axis. Separate evaluation
 records at the same iteration are preserved. Per-record IDs allow a replacement
 uploader to deduplicate against W&B history when resuming its stable run ID.
+After a training handoff, `--source` selects the resumed learner while
+`--tracking-source` preserves the original W&B run and dashboard URL. Stop the
+old uploader before starting its replacement so each dashboard has one writer.
 
 The uploader checks for new logs every 30 seconds; Modal volume commits and
 W&B ingestion can add delay. It stops after observing a terminal trainer state
@@ -385,13 +396,17 @@ are disabled. Only selected scalar logs and training configuration are uploaded.
 
 `modal_checkpoint_eval.py` watches the active run's numbered EMA checkpoints.
 It retains iteration 500 as a fixed reference, then adds 1000, 1500, and each
-subsequent 500-step checkpoint. Every new snapshot plays all earlier references:
-1000 versus 500; 1500 versus 500 and 1000; and so on. The initial 500-versus-500
+subsequent 500-step checkpoint. **Candidates are evaluated every 100 iterations**
+against all earlier references: 600, 700, 800, 900 and 1000 versus 500; 1100 versus
+500 and 1000; 1600 versus 500, 1000 and 1500; and so on. The initial 500-versus-500
 control checks paired-game accounting and is displayed separately from progress.
+The first campaign saved only iteration 500 before the change, so 600–900 cannot
+be reconstructed. Dense saving begins after the safe handoff at iteration 946.
 
 ```sh
 .venv-modal/bin/python -m modal run --detach modal_checkpoint_eval.py \
-  --source published-20260919-native4-production-eight-b200-8gpu-train \
+  --source published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --tracking-source published-20260919-native4-production-eight-b200-8gpu-train \
   --entity bobdethird
 ```
 
@@ -399,8 +414,10 @@ The CPU watcher requests one **H100** only when a candidate is ready. The learne
 continues on its existing GPUs; its volume is mounted read-only by the evaluator.
 Numbered snapshots must be confirmed by the trainer's completed checkpoint marker
 before evaluation. Mutable `published_latest` files are never used as references.
-Start only one watcher for a given source. A resumed watcher reuses completed
-result files and deduplicates W&B events.
+Start only one watcher for a given tracking source. A resumed watcher reuses
+completed result files and deduplicates W&B events. It follows the selected
+checkpoint ancestry to retain references from before a training handoff, with
+each ancestor clipped at the iteration actually resumed.
 
 Each real comparison uses **512 games / 256 paired maps**, with identical seeds
 and both player positions. The fixed test environment uses 17–23 sized boards,

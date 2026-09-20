@@ -32,7 +32,7 @@ def output_directory(source):
 
 @app.function(gpu="H100!", cpu=(4, 4), memory=(16384, 32768),
               startup_timeout=300, scaledown_window=2, single_use_containers=True, **COMMON)
-def evaluate(source, candidate, references, deadline):
+def evaluate(source, candidate, references, deadline, tracking_source=""):
     """Allocate a GPU only for a concrete candidate; persist completed pairs."""
     import subprocess
     from reader.process_run import run_bounded
@@ -46,7 +46,7 @@ def evaluate(source, candidate, references, deadline):
     print("EVALUATOR HARDWARE " + hardware, flush=True)
     training_volume.reload()
     results_volume.reload()
-    output = output_directory(source)
+    output = output_directory(tracking_source or source)
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["JAX_COMPILATION_CACHE_DIR"] = f"/evaluations/compiler-cache-h100-{PROTOCOL_ID}"
@@ -81,39 +81,43 @@ def private_project(api, entity):
 
 @app.function(cpu=0.25, memory=1024,
               secrets=[modal.Secret.from_name("wandb-secret", required_keys=["WANDB_API_KEY"])], **COMMON)
-def watch(source=DEFAULT_SOURCE, entity="bobdethird"):
-    """Automatically evaluate each immutable 500-step snapshot against all earlier anchors."""
+def watch(source=DEFAULT_SOURCE, entity="bobdethird", tracking_source=""):
+    """Evaluate 100-step snapshots against 500-step anchors across training resumes."""
     import wandb
     os.environ["WANDB_MODE"] = "online"
     validate_source(source)
+    tracking_source = validate_source(tracking_source or source)
     api = wandb.Api()
     entity = entity or api.default_entity
     private_project(api, entity)
     training_volume.reload()
     record = json.loads((Path("/runs") / source / "run.json").read_text())
     deadline = float(record["deadline_unix"])
-    output = output_directory(source)
+    output = output_directory(tracking_source)
     output.mkdir(parents=True, exist_ok=True)
-    identifier = run_id(source)
+    identifier = run_id(tracking_source)
     existing = list(api.runs(f"{entity}/{PROJECT}", filters={"name": identifier}))
     logged = {r["match_id"] for r in existing[0].scan_history(keys=["match_id"])} if existing else set()
     run = wandb.init(entity=entity, project=PROJECT, id=identifier, resume="allow",
         name="EMA checkpoint comparisons", job_type="checkpoint-evaluation", dir="/tmp",
-        config={"source_run": source, "protocol": PROTOCOL, "protocol_id": PROTOCOL_ID,
+        config={"source_run": tracking_source, "protocol": PROTOCOL, "protocol_id": PROTOCOL_ID,
                 "gpu": "H100", "deadline_unix": deadline,
-                "schedule": "Every 500 iterations against all earlier 500-step EMA checkpoints",
                 "control": "500 vs 500 validates symmetry; it is not evidence of improvement"},
         settings=wandb.Settings(mode="online", console="off", disable_code=True,
             disable_git=True, save_code=False, x_disable_stats=True, x_disable_meta=True,
             x_disable_machine_info=True, x_save_requirements=False,
             x_file_stream_transmit_interval=5, quiet=True, finish_timeout=60))
+    run.config.update({"active_source_run": source,
+                       "schedule": "Every 100 iterations against all earlier 500-step EMA checkpoints"},
+                      allow_val_change=True)
     run.define_metric("iteration")
     run.define_metric("checkpoint/*", step_metric="iteration", step_sync=False)
     run.define_metric("control/*", step_metric="iteration", step_sync=False)
     print(json.dumps({"wandb_url": run.url, "deadline_unix": deadline,
                       "reference_schedule": "500, 1000, 1500, ...", "gpu": "H100 on demand"}), flush=True)
     retries = {}
-    state = {"source": source, "protocol_id": PROTOCOL_ID, "wandb_url": run.url}
+    state = {"source": source, "tracking_source": tracking_source,
+             "protocol_id": PROTOCOL_ID, "wandb_url": run.url}
 
     def save_state(**updates):
         state.update(updates, updated_unix=time.time())
@@ -149,7 +153,7 @@ def watch(source=DEFAULT_SOURCE, entity="bobdethird"):
                 candidate = pending[0][0]
                 references = [ref for c, ref in pending if c == candidate]
                 save_state(status="evaluating", candidate=candidate, references=references)
-                job = evaluate.remote(source, candidate, references, deadline)
+                job = evaluate.remote(source, candidate, references, deadline, tracking_source)
                 if job["status"] == "failed":
                     retries[candidate] = retries.get(candidate, 0) + 1
                     if retries[candidate] >= 3:
@@ -169,12 +173,13 @@ def watch(source=DEFAULT_SOURCE, entity="bobdethird"):
 
 
 @app.local_entrypoint()
-def main(source: str = DEFAULT_SOURCE, entity: str = "bobdethird"):
-    call = watch.spawn(source, entity)
+def main(source: str = DEFAULT_SOURCE, entity: str = "bobdethird", tracking_source: str = ""):
+    call = watch.spawn(source, entity, tracking_source)
     local = ROOT / "runs/checkpoint-evaluation"
     local.mkdir(parents=True, exist_ok=True)
-    report = {"source": source, "call_id": call.object_id, "protocol_id": PROTOCOL_ID,
-              "wandb_url": f"https://wandb.ai/{entity}/{PROJECT}/runs/{run_id(source)}"}
+    report = {"source": source, "tracking_source": tracking_source or source,
+              "call_id": call.object_id, "protocol_id": PROTOCOL_ID,
+              "wandb_url": f"https://wandb.ai/{entity}/{PROJECT}/runs/{run_id(tracking_source or source)}"}
     (local / "launch.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report), flush=True)
     print(json.dumps(call.get()), flush=True)
