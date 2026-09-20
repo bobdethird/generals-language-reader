@@ -337,6 +337,50 @@ $24.9984/hour for four B200s and $28.3968/hour for four B300s, plus CPU and memo
 ([Modal pricing](https://modal.com/pricing)). B200 was chosen for more training
 within the fixed time window; H100 costs less per completed iteration.
 
+## Live Weights & Biases dashboard
+
+`modal_wandb.py` mirrors the existing learner's scalar logs on a separate
+CPU-only Modal function. It does not restart training or load model weights.
+The training volume is mounted read-only. Store a W&B key as `WANDB_API_KEY`
+inside a Modal secret named `wandb-secret` in the same workspace/environment.
+Do not put the key in source code or Git.
+
+```sh
+.venv-modal/bin/python -m modal run modal_wandb.py --check-only
+.venv-modal/bin/python -m modal run --detach modal_wandb.py \
+  --source published-20260919-native4-production-eight-b200-8gpu-train
+```
+
+The uploader uses the key's default W&B entity, or `--entity YOUR_TEAM`, and
+creates `generals-language-reader` with private visibility. It refuses to send
+metrics to an existing public project. The launch prints the dashboard URL.
+Run only one uploader per source run. `--inspect-only` reads its server status.
+
+History follows the selected checkpoint's ancestry, with each parent clipped
+at the resumed iteration; sibling benchmarks and earlier small models are
+excluded. Charts use the original **iteration** axis. Separate evaluation
+records at the same iteration are preserved. Per-record IDs allow a replacement
+uploader to deduplicate against W&B history when resuming its stable run ID.
+
+The uploader checks for new logs every 30 seconds; Modal volume commits and
+W&B ingestion can add delay. It stops after observing a terminal trainer state
+and a final one-minute sync window, or ten minutes after the trainer's saved
+deadline. This does not change the learner's deadline or iteration target.
+
+Useful panels include `train/total_loss`, `train/policy_loss`,
+`train/value_loss`, `eval/win_rate`, `curriculum/stage`, and
+`performance/iterations_per_second`. Throughput uses consecutive learner
+timestamps, including evaluation and compilation pauses. The run configuration
+records hardware and batch transitions (the current lineage increases its global
+batch at iteration 241). Evaluation win rate is against random play at the
+current curriculum difficulty; self-play `train/win_rate` is not a strength rating.
+Uploader host/system metrics and automatic code/environment metadata capture
+are disabled. Only selected scalar logs and training configuration are uploaded.
+
+```sh
+.venv/bin/python -m pytest -q tests/test_wandb_sync.py
+```
+
 ## Earlier small-model Modal runs
 
 The small-map job below was stopped and superseded by the published-recipe
@@ -663,8 +707,8 @@ absolute-advantage filtering. Those details differ from the paper's prose; this
 project does not claim an exact replication of the paper.
 
 Dependencies, models, runs, and third-party sources are ignored by Git. The
-fetch script and lock files recreate them. No remote repository has been created
-or changes pushed.
+fetch script and lock files recreate them. Source is backed up in the private
+[GitHub repository](https://github.com/bobdethird/generals-language-reader).
 
 ## References
 
