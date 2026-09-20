@@ -293,7 +293,7 @@ FUNCTIONS = {
 
 @app.local_entrypoint()
 def main(gpus: str = "B200:4", iterations: int = TRAINING_TARGET,
-         campaign: str = "published-20260919", cache_from: str = "", resume_from: str = "", deadline: str = "2026-09-20T04:19:03+00:00", batch_mode: str = "native4"):
+         campaign: str = "published-20260919", cache_from: str = "", resume_from: str = "", deadline: str = "2026-09-20T03:00:00-04:00", batch_mode: str = "native4"):
     deadline_unix = dt.datetime.fromisoformat(deadline).timestamp()
     selections = [(gpu, int(count)) for gpu, count in (s.split(":") for s in gpus.split(","))]
     jobs = []

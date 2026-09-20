@@ -100,14 +100,14 @@ def watch(source=DEFAULT_SOURCE, entity="bobdethird", tracking_source=""):
     logged = {r["match_id"] for r in existing[0].scan_history(keys=["match_id"])} if existing else set()
     run = wandb.init(entity=entity, project=PROJECT, id=identifier, resume="allow",
         name="EMA checkpoint comparisons", job_type="checkpoint-evaluation", dir="/tmp",
-        config={"source_run": tracking_source, "protocol": PROTOCOL, "protocol_id": PROTOCOL_ID,
+        config=None if existing else {"source_run": tracking_source, "protocol": PROTOCOL, "protocol_id": PROTOCOL_ID,
                 "gpu": "H100", "deadline_unix": deadline,
                 "control": "500 vs 500 validates symmetry; it is not evidence of improvement"},
         settings=wandb.Settings(mode="online", console="off", disable_code=True,
             disable_git=True, save_code=False, x_disable_stats=True, x_disable_meta=True,
             x_disable_machine_info=True, x_save_requirements=False,
             x_file_stream_transmit_interval=5, quiet=True, finish_timeout=60))
-    run.config.update({"active_source_run": source,
+    run.config.update({"active_source_run": source, "deadline_unix": deadline,
                        "schedule": "Every 100 iterations against all earlier 500-step EMA checkpoints"},
                       allow_val_change=True)
     run.define_metric("iteration")

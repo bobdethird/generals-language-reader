@@ -230,10 +230,10 @@ Modal, then interpretation of that frozen checkpoint. This pilot's lack of
 useful explanations does not establish whether stronger play alone will solve
 the reader's grounding problem.
 
-## Published recipe and six-hour GPU campaign
+## Published recipe and GPU campaign
 
 **Current target: 30,000 total iterations**, including already completed updates,
-or the existing **2026-09-20 04:19:03 UTC** save-and-stop deadline, whichever comes
+or the extended **2026-09-20 07:00:00 UTC / 03:00 Eastern** save-and-stop deadline, whichever comes
 first. The unchanged upstream YAML is retained for provenance; the runtime target
 is 30,000 and resuming subtracts the checkpoint's completed iterations.
 
@@ -242,7 +242,26 @@ configuration with **100-iteration checkpoint saves**, as requested for denser
 evaluation. Production overrides `ckpt_every` and `save_every` to 100; the
 published YAML remains unchanged. Weights, optimizer, EMA and curriculum resume
 from that checkpoint; game environments start fresh. The target and original
-deadline remain unchanged.
+deadline remained unchanged at that handoff.
+
+The user subsequently extended the cutoff to **3 a.m. Eastern on September 20**.
+The fixed process timer requires a safe restart: the dense-checkpoint run saved
+iteration **2143**, including weights, Adam, EMA, and final curriculum stage 4.
+The continuation uses the same eight-B200 workload and 100-iteration save cadence:
+
+```sh
+.venv-modal/bin/python -m modal run --detach modal_published.py \
+  --gpus B200:8 --batch-mode native4 --iterations 30000 \
+  --campaign published-20260920-3am-eight \
+  --cache-from published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --resume-from published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --deadline 2026-09-20T03:00:00-04:00
+```
+
+Active learner: `published-20260920-3am-eight-b200-8gpu-train`
+([Modal run](https://modal.com/apps/admin-23601/main/ap-zXvzitoUHwZXO72PeoaVVV)).
+Fresh game environments start on resume. Both dashboards retain their original
+W&B run IDs and ancestry; their replacement workers use the extended deadline.
 
 **Earlier-run caveat identified September 19:** through iteration 240 the multi-GPU runner
 preserved the *one-GPU* global batch, not the repository's native four-GPU batch.
@@ -316,8 +335,9 @@ It uses the 15,351,761-parameter model, 17–23 tile maps padded to 24, the orig
 200,000-map pool, and distance stages 2–6, 4–8, 6–13, 11–17, and 17–28. The
 small-model checkpoints are shape-incompatible; these experiments start fresh.
 
-The September 19 campaign has an explicitly authorized deadline of
-**2026-09-20 04:19:03 UTC / 00:19:03 Eastern**, including benchmark time. A completed
+The September 19 campaign originally had a six-hour deadline of
+**2026-09-20 04:19:03 UTC / 00:19:03 Eastern**, including benchmark time; the user
+extended it to **07:00 UTC / 03:00 Eastern** as documented above. A completed
 update near the deadline saves current weights, Adam, EMA, curriculum stage and
 iteration before exiting. A parent-process deadline also prevents a hung training
 step from exceeding the window. It does not mark a timed-out run as completed.
@@ -395,7 +415,7 @@ Do not put the key in source code or Git.
 ```sh
 .venv-modal/bin/python -m modal run modal_wandb.py --check-only
 .venv-modal/bin/python -m modal run --detach modal_wandb.py \
-  --source published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --source published-20260920-3am-eight-b200-8gpu-train \
   --tracking-source published-20260919-native4-production-eight-b200-8gpu-train
 ```
 
@@ -445,7 +465,7 @@ be reconstructed. Dense saving begins after the safe handoff at iteration 946.
 
 ```sh
 .venv-modal/bin/python -m modal run --detach modal_checkpoint_eval.py \
-  --source published-20260919-native4-dense100-eight-b200-8gpu-train \
+  --source published-20260920-3am-eight-b200-8gpu-train \
   --tracking-source published-20260919-native4-production-eight-b200-8gpu-train \
   --entity bobdethird
 ```
