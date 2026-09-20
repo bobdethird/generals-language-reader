@@ -125,6 +125,27 @@ This check loads the actual weights and runs eight simulator turns without a
 window. It passed locally with finite weights and about 9 ms per warmed-up
 decision; interactive human play was also confirmed.
 
+## Record a spectator game
+
+`scripts/record_checkpoint.py` runs a complete local self-match with one frozen
+EMA checkpoint controlling both players. Each player receives its own normal
+fogged observations and history; the recording renders the full simulator state.
+Move selection is greedy, matching checkpoint evaluations. The 1080p MP4 shows
+both armies, land/city totals, recent moves, and army history at 2× game speed.
+FFmpeg must be on `PATH`; Pillow is included in the locked local dependencies.
+
+```sh
+.venv/bin/python scripts/record_checkpoint.py \
+  --checkpoint runs/spectator-3000/L_7d_gae90_ema_3000.eqx \
+  --label 3000 --seed 3000 --output runs/spectator-3000/game-seed-3000
+```
+
+Download the EMA weights from the training volume first, as with human play.
+The output directory must be new. It contains the MP4, frame previews, a
+compressed `game.npz` trajectory, and `game.json` with checkpoint/config hashes,
+source pins, seed, outcome, and video details. Use `--render-only --output PATH`
+to re-encode a saved game without replaying or changing the match.
+
 ## Run a local experiment
 
 The wrapper selects the CPU explicitly, disables external experiment logging,
