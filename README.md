@@ -381,6 +381,55 @@ are disabled. Only selected scalar logs and training configuration are uploaded.
 .venv/bin/python -m pytest -q tests/test_wandb_sync.py
 ```
 
+### Wins against older checkpoints
+
+`modal_checkpoint_eval.py` watches the active run's numbered EMA checkpoints.
+It retains iteration 500 as a fixed reference, then adds 1000, 1500, and each
+subsequent 500-step checkpoint. Every new snapshot plays all earlier references:
+1000 versus 500; 1500 versus 500 and 1000; and so on. The initial 500-versus-500
+control checks paired-game accounting and is displayed separately from progress.
+
+```sh
+.venv-modal/bin/python -m modal run --detach modal_checkpoint_eval.py \
+  --source published-20260919-native4-production-eight-b200-8gpu-train \
+  --entity bobdethird
+```
+
+The CPU watcher requests one **H100** only when a candidate is ready. The learner
+continues on its existing GPUs; its volume is mounted read-only by the evaluator.
+Numbered snapshots must be confirmed by the trainer's completed checkpoint marker
+before evaluation. Mutable `published_latest` files are never used as references.
+Start only one watcher for a given source. A resumed watcher reuses completed
+result files and deduplicates W&B events.
+
+Each real comparison uses **512 games / 256 paired maps**, with identical seeds
+and both player positions. The fixed test environment uses 17–23 sized boards,
+generals 17–28 tiles apart, the published terrain/city settings, greedy actions,
+and a 2,048-turn limit. All candidates and opponents use their EMA weights.
+These test seeds are separate from the training seed. The initial symmetric
+control uses 128 games and must have equal win and loss counts.
+
+The private W&B project contains a separate **EMA checkpoint comparisons** run
+with `checkpoint/win_rate_vs_500`, `checkpoint/draw_rate_vs_500`,
+`checkpoint/loss_rate_vs_500`, and equivalent series for each later reference.
+`checkpoint/score_vs_500` counts a draw as half a point; this differs from the win
+rate, which keeps draws in the denominator. A fixed set of older opponents helps
+detect regressions that testing only against random play can miss. These results
+are relative to our own checkpoint bank, not a human-player rating.
+
+Results, seeds, per-batch counts, checkpoint hashes, and logs persist in the
+`generals-checkpoint-evaluations` Modal Volume under the source run and protocol
+hash. Model weights are not uploaded to W&B. The watcher launches no new work in
+the last two minutes of the saved campaign deadline, and an active H100 subprocess
+is terminated before that deadline. Any unfinished comparisons remain listed in
+the persisted watcher state for a later explicitly resumed campaign.
+
+```sh
+JAX_PLATFORMS=cpu .venv/bin/python -m pytest -q \
+  tests/test_checkpoint_evaluation.py tests/test_upstream_training.py \
+  -k 'checkpoint or paired_matches or match_executor'
+```
+
 ## Earlier small-model Modal runs
 
 The small-map job below was stopped and superseded by the published-recipe
