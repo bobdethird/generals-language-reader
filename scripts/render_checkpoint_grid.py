@@ -101,7 +101,7 @@ class Board:
         result=""
         if finished:
             result=" · "+("RED WINS" if self.record["winner"]==0 else "BLUE WINS" if self.record["winner"]==1 else "DRAW")
-        text(right-12,8,f"ITER {self.labels[0]} vs {self.labels[1]}{result}",18,anchor="ra")
+        text(right-12,8,f"CHECKPOINTS {self.labels[0]} vs {self.labels[1]}{result}",18,anchor="ra")
         text(left+12,32,f"{self.labels[0]}: {int(self.army[index,0])} army / {int(self.land[index,0])} land",16,(255,146,153))
         text(left+12,52,f"{self.labels[1]}: {int(self.army[index,1])} army / {int(self.land[index,1])} land",16,(141,184,255))
         text(right-12,41,f"T {index/2:g} · 2×",16,(187,201,216),anchor="ra")
@@ -136,6 +136,13 @@ def render(args):
         for i,board in enumerate(boards):
             im.paste(board.frame(tick),((i%2)*QUADRANT,(i//2)*QUADRANT))
         d=ImageDraw.Draw(im)
+        # Explain checkpoint numbers once, in the unused top-left margin.
+        # Keep the legend above the map and the individual match overlays small.
+        d.text((46,8),"Same AI at different stages of training",font=boards[0].fonts[20],fill=(239,244,249))
+        d.text((46,33),"Numbers = completed training iterations, not Elo ratings.",
+               font=boards[0].fonts[16],fill=(187,201,216))
+        d.text((46,54),"Each iteration learns from a batch of self-play experience.",
+               font=boards[0].fonts[16],fill=(187,201,216))
         d.line((QUADRANT,0,QUADRANT,HEIGHT),fill=(87,103,121),width=2)
         d.line((0,QUADRANT,WIDTH,QUADRANT),fill=(87,103,121),width=2)
         return im
@@ -169,6 +176,7 @@ def render(args):
               "duration_seconds":(final_tick+24)/TICKS_PER_SECOND,"playback_speed":2,
               "finished_games":"Hold final board while the other matches finish",
               "checkpoint_numbers":"Training iterations, not Elo ratings",
+              "on_screen_legend":"Numbers = completed training iterations, not Elo ratings. Each iteration learns from a batch of self-play experience.",
               "sha256":hashlib.sha256(movie.read_bytes()).hexdigest(),
               "games":[{"position":position,"folder":str(board.folder),"labels":board.labels,
                         "ticks":board.record["ticks"],"winner":board.record["winner"]}
